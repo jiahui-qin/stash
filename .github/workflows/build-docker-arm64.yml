@@ -19,7 +19,7 @@ env:
   COMPILER_IMAGE: ghcr.io/stashapp/compiler:14
 
 jobs:
-  # Generate code and build UI (from main stash workflow)
+  # Generate code and build UI
   generate:
     runs-on: ubuntu-24.04
     outputs:
@@ -79,10 +79,13 @@ jobs:
           export STASH_VERSION
           make ui
 
-      - name: Upload generated artifacts
+      - name: Create dist directory
+        run: mkdir -p dist
+
+      - name: Upload all build artifacts
         uses: actions/upload-artifact@v7
         with:
-          name: generated
+          name: build-artifacts
           retention-days: 1
           path: |
             internal/api/generated_exec.go
@@ -103,7 +106,11 @@ jobs:
       - name: Download generated artifacts
         uses: actions/download-artifact@v8
         with:
-          name: generated
+          name: build-artifacts
+          path: .
+
+      - name: Create dist directory
+        run: mkdir -p dist
 
       - name: Pull compiler image
         run: docker pull ${{ env.COMPILER_IMAGE }}
@@ -116,10 +123,13 @@ jobs:
             ${{ env.COMPILER_IMAGE }} \
             make build-cc-linux-arm64v8
 
+      - name: Verify binary exists
+        run: ls -la dist/stash-linux-arm64v8
+
       - name: Upload ARM64 binary
         uses: actions/upload-artifact@v7
         with:
-          name: stash-linux-arm64v8
+          name: stash-binary
           path: dist/stash-linux-arm64v8
           retention-days: 1
 
@@ -136,18 +146,33 @@ jobs:
       - name: Download generated artifacts
         uses: actions/download-artifact@v8
         with:
-          name: generated
+          name: build-artifacts
+          path: .
 
       - name: Download ARM64 binary
         uses: actions/download-artifact@v8
         with:
-          name: stash-linux-arm64v8
-          path: dist
+          name: stash-binary
+          path: .
 
-      - name: Set up Go
-        uses: actions/setup-go@v6
-        with:
-          go-version-file: 'go.mod'
+      - name: Create dist directory and move binary
+        run: |
+          mkdir -p dist
+          mv stash-linux-arm64v8 dist/
+
+      - name: Verify files exist
+        run: |
+          echo "=== Checking files ==="
+          ls -la dist/stash-linux-arm64v8
+          ls -la ui/v2.5/build/
+          echo "=== File check complete ==="
+
+      - name: Prepare docker build (remove conflicting .dockerignore entries)
+        run: |
+          # Create a modified .dockerignore for ARM64 build
+          # that doesn't exclude dist and ui/v2.5/build
+          cat .dockerignore | grep -v "^dist$" | grep -v "^ui/v2.5/build$" > .dockerignore.arm64
+          cat .dockerignore.arm64 | head -20
 
       - name: Get version info
         id: version
@@ -176,7 +201,8 @@ jobs:
         uses: docker/build-push-action@v6
         with:
           context: .
-          file: ./Dockerfile.arm64
+          dockerfile: ./Dockerfile.arm64
+          ignore: .dockerignore.arm64
           platforms: linux/arm64
           push: true
           tags: |
