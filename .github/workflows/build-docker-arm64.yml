@@ -188,8 +188,8 @@ jobs:
             GITHASH=${{ steps.version.outputs.githash }}
             STASH_VERSION=${{ steps.version.outputs.version }}
             BUILD_DATE=${{ steps.version.outputs.build_date }}
-          cache-from: type=gha,mode=max
-          cache-to: type=gha,mode=max
+          cache-from: type=gha
+          cache-to: type=gha
 
       - name: Create and push latest tag
         run: |
