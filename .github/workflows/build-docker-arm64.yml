@@ -169,10 +169,13 @@ jobs:
 
       - name: Prepare docker build (remove conflicting .dockerignore entries)
         run: |
-          # Create a modified .dockerignore for ARM64 build
-          # that doesn't exclude dist and ui/v2.5/build
-          cat .dockerignore | grep -v "^dist$" | grep -v "^ui/v2.5/build$" > .dockerignore.arm64
-          cat .dockerignore.arm64 | head -20
+          # Backup original .dockerignore
+          cp .dockerignore .dockerignore.bak
+          # Remove dist and ui/v2.5/build from .dockerignore for ARM64 build
+          sed -i '/^dist$/d' .dockerignore
+          sed -i '/^ui\/v2.5\/build$/d' .dockerignore
+          echo "Modified .dockerignore:"
+          cat .dockerignore
 
       - name: Get version info
         id: version
@@ -201,8 +204,7 @@ jobs:
         uses: docker/build-push-action@v6
         with:
           context: .
-          dockerfile: ./Dockerfile.arm64
-          ignore: .dockerignore.arm64
+          file: ./Dockerfile.arm64
           platforms: linux/arm64
           push: true
           tags: |
@@ -215,12 +217,9 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha
 
-      - name: Create and push latest tag
+      - name: Push versioned tags
         run: |
-          docker pull ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ steps.version.outputs.version }}-arm64
-          docker tag ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ steps.version.outputs.version }}-arm64 \
-            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest
-          docker push ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest
+          docker push ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:arm64-latest
           docker push ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ steps.version.outputs.version }}-arm64
 
       - name: Output image info
