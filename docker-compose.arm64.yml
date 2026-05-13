@@ -1,0 +1,40 @@
+# docker-compose for ARM64 (RK3568) devices
+# Usage: docker-compose -f docker-compose.arm64.yml up -d
+
+services:
+  stash:
+    image: ghcr.io/jiahui-qin/stash:latest
+    container_name: stash
+    restart: unless-stopped
+    ports:
+      - "9999:9999"
+    logging:
+      driver: "json-file"
+      options:
+        max-file: "10"
+        max-size: "10m"
+    environment:
+      - STASH_STASH=/data/
+      - STASH_GENERATED=/generated/
+      - STASH_METADATA=/metadata/
+      - STASH_CACHE=/cache/
+      - STASH_PORT=9999
+    volumes:
+      - /etc/localtime:/etc/localtime:ro
+      # Configuration and scrapers
+      - ./config:/root/.stash
+      # Your media collection
+      - ./data:/data
+      # Metadata
+      - ./metadata:/metadata
+      # Cache
+      - ./cache:/cache
+      # Binary blob data
+      - ./blobs:/blobs
+      # Generated content
+      - ./generated:/generated
+    # For better performance on NAS/SBC, use host network
+    # network_mode: host
+    # For GPU/transcoding support on RK3568, uncomment below
+    # devices:
+    #   - /dev/dri:/dev/dri

@@ -1,0 +1,59 @@
+# Dockerfile for ARM64 (RK3568)
+# Optimized for RK3568 devices - uses pre-built binary
+
+# Final Runnable Image - Alpine 3.20 base
+FROM alpine:3.20
+
+# Install runtime dependencies
+RUN apk add --no-cache \
+    ca-certificates \
+    vips \
+    ffmpeg \
+    bash \
+    tzdata \
+    wget \
+    zip \
+    unzip
+
+# Create non-root user for security
+RUN addgroup -g 1000 stash && \
+    adduser -u 1000 -G stash -s /bin/bash -D stash
+
+# Create directories for config and data
+RUN mkdir -p /root/.stash /data /generated /metadata /cache /blobs && \
+    chown -R stash:stash /root/.stash /data /generated /metadata /cache /blobs
+
+# Copy pre-built binary
+ARG BUILD_DATE
+ARG GITHASH
+ARG STASH_VERSION
+COPY dist/stash-linux-arm64v8 /usr/local/bin/stash
+RUN chmod +x /usr/local/bin/stash
+
+# Copy UI build
+COPY ui/v2.5/build /stash/ui/v2.5/build
+RUN chown -R stash:stash /stash
+
+# Set environment variables
+ENV STASH_CONFIG_FILE=/root/.stash/config.yml
+ENV STASH_STASH=/data/
+ENV STASH_GENERATED=/generated/
+ENV STASH_METADATA=/metadata/
+ENV STASH_CACHE=/cache/
+ENV STASH_PORT=9999
+ENV STASH_VERSION=${STASH_VERSION:-development}
+ENV STASH_BUILD_DATE=${BUILD_DATE:-unknown}
+ENV STASH_GITHASH=${GITHASH:-unknown}
+
+# Expose the default port
+EXPOSE 9999
+
+# Switch to non-root user
+USER stash
+
+# Health check
+HEALTHCHECK --interval=30s --timeout=10s --start-period=10s --retries=3 \
+    CMD wget --no-verbose --tries=1 --spider http://localhost:9999/health || exit 1
+
+# Entry point
+ENTRYPOINT ["/usr/local/bin/stash"]
