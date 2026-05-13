@@ -217,11 +217,6 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha
 
-      - name: Push versioned tags
-        run: |
-          docker push ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:arm64-latest
-          docker push ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ steps.version.outputs.version }}-arm64
-
       - name: Output image info
         run: |
           echo "## Docker Image Built Successfully" >> $GITHUB_STEP_SUMMARY
